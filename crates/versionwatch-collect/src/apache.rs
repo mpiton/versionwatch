@@ -47,13 +47,25 @@ impl Collector for ApacheCollector {
             .await
             .map_err(|e| Error::Other(format!("Failed to read Apache download page: {e}")))?;
 
-        // Regex: httpd-2.4.59.tar.gz, ignore alpha/beta/rc
-        let re = Regex::new(r"httpd-(\d+)\.(\d+)\.(\d+)\.tar\.gz").unwrap();
+        // Regex: httpd-2.4.59.tar.gz or httpd-2.4.59-rc1.tar.gz
+        let re = Regex::new(r"httpd-(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9]+))?\.tar\.gz")
+            .map_err(|e| Error::Other(format!("Invalid regex pattern: {e}")))?;
         let mut versions = BTreeSet::new();
         for cap in re.captures_iter(&body) {
-            let major: u32 = cap[1].parse().unwrap_or(0);
-            let minor: u32 = cap[2].parse().unwrap_or(0);
-            let patch: u32 = cap[3].parse().unwrap_or(0);
+            // cap[4] is the optional suffix (rc1, alpha, beta, etc)
+            if cap.get(4).is_some() {
+                // Ignore pre-releases
+                continue;
+            }
+            let major: u32 = cap[1]
+                .parse()
+                .map_err(|_| Error::Other(format!("Invalid major version: {}", &cap[1])))?;
+            let minor: u32 = cap[2]
+                .parse()
+                .map_err(|_| Error::Other(format!("Invalid minor version: {}", &cap[2])))?;
+            let patch: u32 = cap[3]
+                .parse()
+                .map_err(|_| Error::Other(format!("Invalid patch version: {}", &cap[3])))?;
             // Only consider 2.x.x and above (ignore legacy 1.x)
             if major >= 2 {
                 versions.insert((major, minor, patch));
