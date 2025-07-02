@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use polars::prelude::*;
 
+pub mod apache;
 pub mod docker;
 pub mod eclipse_temurin;
 pub mod elixir;
@@ -37,6 +38,8 @@ pub enum Error {
     RateLimited(String),
     #[error("Other error: {0}")]
     Other(String),
+    #[error(transparent)]
+    Anyhow(#[from] anyhow::Error),
 }
 
 #[derive(serde::Deserialize, Debug)]
@@ -58,4 +61,6 @@ pub trait Collector: Send + Sync {
     async fn collect(&self) -> Result<DataFrame, Error>;
 }
 
+pub use apache::ApacheCollector;
 pub use kong::KongCollector;
+pub use php::PhpCollector;

@@ -4,11 +4,11 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing_subscriber::{EnvFilter, prelude::*};
 use versionwatch_collect::{
-    Collector, docker::DockerCollector, eclipse_temurin::EclipseTemurinCollector,
-    elixir::ElixirCollector, go::GoCollector, kong::KongCollector, kotlin::KotlinCollector,
-    nginx::NginxCollector, node::NodeCollector, perl::PerlCollector, php::PhpCollector,
-    python::PythonCollector, ruby::RubyCollector, rust::RustCollector, scala::ScalaCollector,
-    swift::SwiftCollector,
+    Collector, apache::ApacheCollector, docker::DockerCollector,
+    eclipse_temurin::EclipseTemurinCollector, elixir::ElixirCollector, go::GoCollector,
+    kong::KongCollector, kotlin::KotlinCollector, nginx::NginxCollector, node::NodeCollector,
+    perl::PerlCollector, php::PhpCollector, python::PythonCollector, ruby::RubyCollector,
+    rust::RustCollector, scala::ScalaCollector, swift::SwiftCollector,
 };
 use versionwatch_config::load as load_config;
 use versionwatch_core::domain::software_version::SoftwareVersion;
@@ -25,7 +25,7 @@ async fn main() -> Result<()> {
         .with(EnvFilter::from_default_env())
         .init();
 
-    let config = load_config()?;
+    let config = load_config(std::path::Path::new("config/base.yml"))?;
     let github_token = std::env::var("GITHUB_TOKEN").ok();
 
     let db_url = std::env::var("DATABASE_URL")
@@ -47,12 +47,13 @@ async fn main() -> Result<()> {
             "nginx" => Arc::new(NginxCollector::new(github_token.clone())),
             "kong" => Arc::new(KongCollector::new(github_token.clone())),
             "elixir" => Arc::new(ElixirCollector::new(github_token.clone())),
-            "php" => Arc::new(PhpCollector {}),
+            "php" => Arc::new(PhpCollector::default()),
             "ruby" => Arc::new(RubyCollector {}),
             "scala" => Arc::new(ScalaCollector::new(github_token.clone())),
             "kotlin" => Arc::new(KotlinCollector::new(github_token.clone())),
             "swift" => Arc::new(SwiftCollector::new(github_token.clone())),
             "perl" => Arc::new(PerlCollector {}),
+            "apache" => Arc::new(ApacheCollector::new()),
             _ => {
                 tracing::warn!("Unknown target: {}", target.name);
                 continue;
