@@ -4,9 +4,9 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing_subscriber::{EnvFilter, prelude::*};
 use versionwatch_collect::{
-    Collector, docker::DockerCollector, eclipse_temurin::EclipseTemurinCollector, 
-    elixir::ElixirCollector, go::GoCollector, kotlin::KotlinCollector, nginx::NginxCollector, 
-    node::NodeCollector, perl::PerlCollector, php::PhpCollector, python::PythonCollector, 
+    Collector, docker::DockerCollector, eclipse_temurin::EclipseTemurinCollector,
+    elixir::ElixirCollector, go::GoCollector, kotlin::KotlinCollector, nginx::NginxCollector,
+    node::NodeCollector, perl::PerlCollector, php::PhpCollector, python::PythonCollector,
     ruby::RubyCollector, rust::RustCollector, scala::ScalaCollector, swift::SwiftCollector,
 };
 use versionwatch_config::load as load_config;

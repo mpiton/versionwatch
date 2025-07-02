@@ -2,9 +2,9 @@ use async_trait::async_trait;
 use polars::prelude::*;
 
 pub mod docker;
+pub mod eclipse_temurin;
 pub mod elixir;
 pub mod go;
-pub mod eclipse_temurin;
 pub mod kotlin;
 pub mod nginx;
 pub mod node;

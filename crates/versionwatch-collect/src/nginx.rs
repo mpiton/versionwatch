@@ -28,7 +28,7 @@ impl Collector for NginxCollector {
         if let Some(token) = &self.github_token {
             request = request.bearer_auth(token);
         }
-        
+
         let releases: Vec<GitHubRelease> = request.send().await?.json().await?;
 
         let latest_release = releases
@@ -37,7 +37,10 @@ impl Collector for NginxCollector {
             .ok_or(Error::NotFound)?;
 
         // Extract version from tag_name, removing "release-" prefix
-        let version = latest_release.tag_name.trim_start_matches("release-").to_string();
+        let version = latest_release
+            .tag_name
+            .trim_start_matches("release-")
+            .to_string();
 
         let df = df!(
             "name" => &["nginx"],
@@ -52,4 +55,4 @@ impl Collector for NginxCollector {
 
         Ok(df)
     }
-} 
+}
