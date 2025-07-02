@@ -29,7 +29,29 @@ impl Collector for NginxCollector {
             request = request.bearer_auth(token);
         }
 
-        let releases: Vec<GitHubRelease> = request.send().await?.json().await?;
+        let response = request.send().await?;
+        if response.status() == reqwest::StatusCode::FORBIDDEN
+            || response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS
+        {
+            if let Some(remaining) = response.headers().get("x-ratelimit-remaining") {
+                if remaining == "0" {
+                    let reset = response
+                        .headers()
+                        .get("x-ratelimit-reset")
+                        .and_then(|v| v.to_str().ok())
+                        .and_then(|s| s.parse::<u64>().ok());
+                    let wait = reset.unwrap_or(0);
+                    let wait_msg =
+                        format!("GitHub API rate limit exceeded. Try again in {wait} seconds.");
+                    return Err(Error::RateLimited(wait_msg));
+                }
+            }
+            return Err(Error::Other(format!(
+                "GitHub API returned forbidden or rate limited: {}",
+                response.status()
+            )));
+        }
+        let releases: Vec<GitHubRelease> = response.json().await?;
 
         let latest_release = releases
             .into_iter()
@@ -44,7 +66,7 @@ impl Collector for NginxCollector {
 
         let df = df!(
             "name" => &["nginx"],
-            "current_version" => &[""],
+            "current_version" => &[None::<String>],
             "latest_version" => &[version],
             "latest_lts_version" => &[None::<String>],
             "is_lts" => &[false],

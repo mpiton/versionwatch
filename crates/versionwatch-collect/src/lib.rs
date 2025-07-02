@@ -32,6 +32,10 @@ pub enum Error {
     NotFound,
     #[error("Failed to parse version string")]
     VersionParse(#[from] semver::Error),
+    #[error("GitHub API rate limited: {0}")]
+    RateLimited(String),
+    #[error("Other error: {0}")]
+    Other(String),
 }
 
 #[derive(serde::Deserialize, Debug)]
