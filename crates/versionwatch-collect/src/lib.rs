@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use polars::prelude::*;
 
+pub mod apache;
 pub mod docker;
 pub mod eclipse_temurin;
 pub mod elixir;
@@ -58,4 +59,5 @@ pub trait Collector: Send + Sync {
     async fn collect(&self) -> Result<DataFrame, Error>;
 }
 
+pub use apache::ApacheCollector;
 pub use kong::KongCollector;

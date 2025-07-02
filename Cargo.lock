@@ -4929,6 +4929,7 @@ dependencies = [
  "config",
  "httpmock",
  "polars",
+ "regex",
  "reqwest",
  "rss",
  "scraper",
