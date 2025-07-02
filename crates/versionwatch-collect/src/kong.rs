@@ -34,16 +34,33 @@ impl Collector for KongCollector {
             || response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS
         {
             if let Some(remaining) = response.headers().get("x-ratelimit-remaining") {
-                if remaining == "0" {
-                    let reset = response
-                        .headers()
-                        .get("x-ratelimit-reset")
-                        .and_then(|v| v.to_str().ok())
-                        .and_then(|s| s.parse::<u64>().ok());
-                    let wait = reset.unwrap_or(0);
-                    let wait_msg =
-                        format!("GitHub API rate limit exceeded. Try again in {wait} seconds.");
-                    return Err(Error::RateLimited(wait_msg));
+                if let Ok(rem_str) = remaining.to_str() {
+                    if let Ok(rem_val) = rem_str.parse::<u32>() {
+                        if rem_val == 0 {
+                            let reset = response
+                                .headers()
+                                .get("x-ratelimit-reset")
+                                .and_then(|v| v.to_str().ok())
+                                .and_then(|s| s.parse::<u64>().ok());
+                            let wait = match reset {
+                                Some(val) => val,
+                                None => {
+                                    tracing::warn!(
+                                        "Could not parse x-ratelimit-reset header; defaulting wait time to 0 seconds."
+                                    );
+                                    0
+                                }
+                            };
+                            let wait_msg = format!(
+                                "GitHub API rate limit exceeded. Try again in {wait} seconds."
+                            );
+                            return Err(Error::RateLimited(wait_msg));
+                        } else if rem_val < 10 {
+                            tracing::warn!(
+                                "GitHub API rate limit is low: {rem_val} requests remaining."
+                            );
+                        }
+                    }
                 }
             }
             return Err(Error::Other(format!(
