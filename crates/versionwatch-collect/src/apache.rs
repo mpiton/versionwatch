@@ -94,7 +94,9 @@ impl Collector for ApacheCollector {
             latest_lts_versions.push(None::<String>);
             is_lts.push(false);
             eol_dates.push(None::<i64>);
-            release_notes_urls.push(Some(format!("https://downloads.apache.org/httpd/CHANGES_{major}.{minor}")));
+            release_notes_urls.push(Some(format!(
+                "https://downloads.apache.org/httpd/CHANGES_{major}.{minor}"
+            )));
             cve_counts.push(0_i32);
         }
 
