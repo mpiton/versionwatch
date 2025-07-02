@@ -67,15 +67,11 @@ impl Collector for ApacheCollector {
             }
         }
 
-        // Find the overall latest version (highest major, minor, patch)
-        let latest = versions.iter().max();
-        let (major, minor, patch) = match latest {
-            Some(v) => *v,
-            None => {
-                tracing::error!("No stable Apache version found on download page");
-                return Err(Error::Other("No stable Apache version found".to_string()));
-            }
-        };
+        if versions.is_empty() {
+            tracing::error!("No stable Apache versions found on download page");
+            return Err(Error::Other("No stable Apache versions found".to_string()));
+        }
+        let (major, minor, patch) = *versions.iter().max().unwrap();
 
         let df = polars::df!(
             "name" => &["apache"],
