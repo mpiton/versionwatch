@@ -1,0 +1,43 @@
+# Rust / Cargo
+# Ignore build artifacts, binaries, and other generated files
+/target/
+.cargo/*
+
+# Environment files
+# Ignore local environment files, but keep the example
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Log files
+*.log
+logs/
+*.log.*
+
+# IDEs and editors specific files
+.idea/
+.vscode/
+.cursor/
+.windsurf/
+*.sublime-project
+*.sublime-workspace
+*.suo
+*.user
+*.userosscache
+*.sln
+*.tmp
+*.sw?
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Test coverage reports
+/coverage/
+*.profraw

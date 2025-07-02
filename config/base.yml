@@ -1,0 +1,45 @@
+# List of software targets to track.
+#
+# name: The official name of the software (e.g., as used in APIs).
+# enabled: Set to `true` to track this software, `false` to ignore.
+
+targets:
+  - name: "node"
+    enabled: true
+
+  - name: "docker"
+    enabled: true
+
+  - name: "rust"
+    enabled: true
+
+  - name: "python"
+    enabled: true
+
+  - name: "eclipse-temurin"
+    enabled: true
+
+  - name: "php"
+    enabled: true
+
+  - name: "go"
+    enabled: true
+
+  - name: "ruby"
+    enabled: true
+
+  - name: "elixir"
+    enabled: true
+
+  - name: "scala"
+    enabled: true
+
+  - name: "kotlin"
+    enabled: true
+
+  - name: "swift"
+    enabled: true
+
+  - name: "perl"
+    enabled: true
+    

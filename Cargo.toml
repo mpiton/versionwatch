@@ -1,0 +1,30 @@
+[workspace]
+members = [
+    "crates/versionwatch-cli",
+    "crates/versionwatch-core",
+    "crates/versionwatch-config",
+    "crates/versionwatch-collect",
+    "crates/versionwatch-db",
+]
+resolver = "2"
+
+[workspace.dependencies]
+anyhow = "1.0.86"
+async-trait = "0.1.80"
+chrono = { version = "0.4.38", features = ["serde"] }
+config = { version = "0.15.0", features = ["yaml"] }
+csv = { version = "1.3", features = ["serde"] }
+dotenvy = "0.15.7"
+polars = { version = "0.49", features = ["serde", "lazy", "strings"] }
+reqwest = { version = "0.12.5", features = ["json"] }
+semver = "1.0.9"
+serde = { version = "1.0.204", features = ["derive"] }
+serde_json = "1.0.120"
+serde_yaml = "0.9.34"
+sqlx = { version = "0.8.0", features = ["runtime-tokio", "postgres", "time", "macros"] }
+thiserror = "2"
+time = { version = "0.3.36", features = ["serde", "macros"] }
+tokio = { version = "1.38.1", features = ["full"] }
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+versionwatch-core = { path = "crates/versionwatch-core" }

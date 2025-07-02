@@ -1,0 +1,18 @@
+[package]
+name = "versionwatch-cli"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+versionwatch-core = { workspace = true }
+versionwatch-config = { path = "../versionwatch-config" }
+versionwatch-collect = { path = "../versionwatch-collect" }
+versionwatch-db = { path = "../versionwatch-db" }
+
+anyhow = { workspace = true }
+dotenvy = { workspace = true }
+polars = { workspace = true }
+serde_yaml = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
