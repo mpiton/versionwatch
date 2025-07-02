@@ -25,6 +25,9 @@ targets:
   - name: "go"
     enabled: true
 
+  - name: "nginx"
+    enabled: true
+
   - name: "ruby"
     enabled: true
 

@@ -2,10 +2,11 @@ use async_trait::async_trait;
 use polars::prelude::*;
 
 pub mod docker;
+pub mod eclipse_temurin;
 pub mod elixir;
 pub mod go;
-pub mod java;
 pub mod kotlin;
+pub mod nginx;
 pub mod node;
 pub mod perl;
 pub mod php;
@@ -31,6 +32,10 @@ pub enum Error {
     NotFound,
     #[error("Failed to parse version string")]
     VersionParse(#[from] semver::Error),
+    #[error("GitHub API rate limited: {0}")]
+    RateLimited(String),
+    #[error("Other error: {0}")]
+    Other(String),
 }
 
 #[derive(serde::Deserialize, Debug)]
