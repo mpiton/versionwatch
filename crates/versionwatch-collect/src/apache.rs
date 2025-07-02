@@ -71,7 +71,9 @@ impl Collector for ApacheCollector {
             tracing::error!("No stable Apache versions found on download page");
             return Err(Error::Other("No stable Apache versions found".to_string()));
         }
-        let (major, minor, patch) = *versions.iter().max().unwrap();
+        let (major, minor, patch) = versions.iter().max()
+            .ok_or_else(|| Error::Other("No stable Apache versions found".to_string()))?
+            .clone();
 
         let df = polars::df!(
             "name" => &["apache"],
