@@ -45,4 +45,7 @@ targets:
 
   - name: "perl"
     enabled: true
+
+  - name: "kong"
+    enabled: true
     

@@ -5,6 +5,7 @@ pub mod docker;
 pub mod eclipse_temurin;
 pub mod elixir;
 pub mod go;
+pub mod kong;
 pub mod kotlin;
 pub mod nginx;
 pub mod node;
@@ -56,3 +57,5 @@ pub trait Collector: Send + Sync {
     fn name(&self) -> &'static str;
     async fn collect(&self) -> Result<DataFrame, Error>;
 }
+
+pub use kong::KongCollector;

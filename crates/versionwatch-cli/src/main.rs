@@ -5,9 +5,10 @@ use tokio::sync::Mutex;
 use tracing_subscriber::{EnvFilter, prelude::*};
 use versionwatch_collect::{
     Collector, docker::DockerCollector, eclipse_temurin::EclipseTemurinCollector,
-    elixir::ElixirCollector, go::GoCollector, kotlin::KotlinCollector, nginx::NginxCollector,
-    node::NodeCollector, perl::PerlCollector, php::PhpCollector, python::PythonCollector,
-    ruby::RubyCollector, rust::RustCollector, scala::ScalaCollector, swift::SwiftCollector,
+    elixir::ElixirCollector, go::GoCollector, kong::KongCollector, kotlin::KotlinCollector,
+    nginx::NginxCollector, node::NodeCollector, perl::PerlCollector, php::PhpCollector,
+    python::PythonCollector, ruby::RubyCollector, rust::RustCollector, scala::ScalaCollector,
+    swift::SwiftCollector,
 };
 use versionwatch_config::load as load_config;
 use versionwatch_core::domain::software_version::SoftwareVersion;
@@ -44,6 +45,7 @@ async fn main() -> Result<()> {
             "eclipse-temurin" => Arc::new(EclipseTemurinCollector {}),
             "go" => Arc::new(GoCollector {}),
             "nginx" => Arc::new(NginxCollector::new(github_token.clone())),
+            "kong" => Arc::new(KongCollector::new(github_token.clone())),
             "elixir" => Arc::new(ElixirCollector::new(github_token.clone())),
             "php" => Arc::new(PhpCollector {}),
             "ruby" => Arc::new(RubyCollector {}),
