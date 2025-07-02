@@ -57,8 +57,8 @@ VersionWatch is an ETL (Extract, Transform, Load) tool built in Rust, designed t
 
 Key features include:
 *   **Automated Version Tracking**: Automatically collects version information from various sources.
-*   **Security Monitoring**: Identifies security vulnerabilities in your dependencies.
-*   **End-of-Life Alerts**: Notifies you about dependencies approaching their end-of-life.
+*   **Security Monitoring**: Identifies security vulnerabilities in your dependencies. (work in progress)
+*   **End-of-Life Alerts**: Notifies you about dependencies approaching their end-of-life. (work in progress)
 *   **Configurable**: Select which software targets to monitor through simple `.yml` configuration.
 *   **Data-Driven**: Uses Polars DataFrames for efficient data transformation.
 
