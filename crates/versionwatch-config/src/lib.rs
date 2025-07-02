@@ -1,9 +1,19 @@
+use std::path::PathBuf;
+
 use serde::Deserialize;
+use std::path::Path;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("Failed to load configuration")]
-    Load(#[from] config::ConfigError),
+    /// The provided config file path does not exist
+    #[error("Config file not found at: {0}")]
+    NotFound(PathBuf),
+    /// The config file is not valid YAML
+    #[error("Could not parse config file: {0}")]
+    Serde(#[from] serde_yaml::Error),
+    /// An IO error occurred
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }
 
 #[derive(Debug, Deserialize)]
@@ -19,14 +29,14 @@ pub struct Settings {
     pub github_token: Option<String>,
 }
 
-pub fn load() -> Result<Settings, Error> {
-    let settings = config::Config::builder()
-        // Start off by merging in the "default" configuration file
-        .add_source(config::File::with_name("config/base"))
-        .add_source(config::Environment::with_prefix("VERSIONWATCH"))
-        .build()?;
-
-    Ok(settings.try_deserialize()?)
+/// Loads the configuration from the given path.
+pub fn load(config_path: &Path) -> Result<Settings, Error> {
+    if !config_path.exists() {
+        return Err(Error::NotFound(config_path.to_path_buf()));
+    }
+    let contents = std::fs::read_to_string(config_path)?;
+    let settings: Settings = serde_yaml::from_str(&contents)?;
+    Ok(settings)
 }
 
 pub fn add(left: u64, right: u64) -> u64 {

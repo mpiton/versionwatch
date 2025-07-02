@@ -1,4 +1,5 @@
 use super::{Collector, Error};
+use anyhow::anyhow;
 use async_trait::async_trait;
 use polars::prelude::*;
 use regex::Regex;
@@ -71,18 +72,19 @@ impl Collector for ApacheCollector {
             tracing::error!("No stable Apache versions found on download page");
             return Err(Error::Other("No stable Apache versions found".to_string()));
         }
-        let (major, minor, patch) = versions.iter().max()
-            .ok_or_else(|| Error::Other("No stable Apache versions found".to_string()))?
-            .clone();
+        let latest_version = versions
+            .iter()
+            .max()
+            .ok_or_else(|| anyhow!("No valid Apache versions found on the download page"))?;
 
         let df = polars::df!(
             "name" => &["apache"],
             "current_version" => &[None::<String>],
-            "latest_version" => &[format!("{major}.{minor}.{patch}")],
+            "latest_version" => &[format!("{}.{}.{}", latest_version.0, latest_version.1, latest_version.2)],
             "latest_lts_version" => &[None::<String>],
             "is_lts" => &[false],
             "eol_date" => &[None::<i64>],
-            "release_notes_url" => &[Some(format!("https://downloads.apache.org/httpd/CHANGES_{major}.{minor}"))],
+            "release_notes_url" => &[Some(format!("https://downloads.apache.org/httpd/CHANGES_{}.{}", latest_version.0, latest_version.1))],
             "cve_count" => &[0_i32],
         ).map_err(|e| Error::Other(e.to_string()))?;
         Ok(df)

@@ -25,7 +25,7 @@ async fn main() -> Result<()> {
         .with(EnvFilter::from_default_env())
         .init();
 
-    let config = load_config()?;
+    let config = load_config(std::path::Path::new("config/base.yml"))?;
     let github_token = std::env::var("GITHUB_TOKEN").ok();
 
     let db_url = std::env::var("DATABASE_URL")
@@ -47,7 +47,7 @@ async fn main() -> Result<()> {
             "nginx" => Arc::new(NginxCollector::new(github_token.clone())),
             "kong" => Arc::new(KongCollector::new(github_token.clone())),
             "elixir" => Arc::new(ElixirCollector::new(github_token.clone())),
-            "php" => Arc::new(PhpCollector {}),
+            "php" => Arc::new(PhpCollector::default()),
             "ruby" => Arc::new(RubyCollector {}),
             "scala" => Arc::new(ScalaCollector::new(github_token.clone())),
             "kotlin" => Arc::new(KotlinCollector::new(github_token.clone())),

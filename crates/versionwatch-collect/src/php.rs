@@ -1,16 +1,33 @@
-use crate::{Collector, Error};
 use async_trait::async_trait;
 use polars::prelude::*;
+use reqwest::Client;
 use serde::Deserialize;
+use std::collections::BTreeMap;
 
-const PHP_RELEASES_URL: &str = "https://www.php.net/releases/index.php?json";
+use crate::Collector;
 
 #[derive(Debug, Deserialize)]
 struct PhpVersion {
     version: String,
 }
 
-pub struct PhpCollector;
+pub struct PhpCollector {
+    client: Client,
+}
+
+impl PhpCollector {
+    pub fn new() -> Self {
+        Self {
+            client: Client::new(),
+        }
+    }
+}
+
+impl Default for PhpCollector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 #[async_trait]
 impl Collector for PhpCollector {
@@ -18,23 +35,28 @@ impl Collector for PhpCollector {
         "php"
     }
 
-    async fn collect(&self) -> Result<DataFrame, Error> {
-        let response: serde_json::Value = reqwest::get(PHP_RELEASES_URL).await?.json().await?;
-        let versions = response
-            .as_object()
-            .ok_or(Error::NotFound)?
-            .values()
-            .filter_map(|v| serde_json::from_value::<PhpVersion>(v.clone()).ok());
+    async fn collect(&self) -> Result<DataFrame, crate::Error> {
+        let response: BTreeMap<String, PhpVersion> = self
+            .client
+            .get("https://www.php.net/releases/index.php?json")
+            .send()
+            .await?
+            .json()
+            .await?;
+
+        let versions: Vec<String> = response.into_values().map(|v| v.version).collect();
 
         let latest_version = versions
-            .filter_map(|v| semver::Version::parse(&v.version).ok())
+            .iter()
+            .filter_map(|v| semver::Version::parse(v).ok())
             .max()
-            .ok_or(Error::NotFound)?;
+            .unwrap()
+            .to_string();
 
         let df = df!(
             "name" => &["php"],
             "current_version" => &[""],
-            "latest_version" => &[latest_version.to_string()],
+            "latest_version" => &[latest_version],
             "latest_lts_version" => &[None::<String>],
             "is_lts" => &[false],
             "eol_date" => &[None::<i64>],
