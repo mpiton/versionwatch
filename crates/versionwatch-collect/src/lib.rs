@@ -2,22 +2,12 @@ use async_trait::async_trait;
 use polars::prelude::*;
 
 pub mod apache;
-pub mod caddy;
-pub mod docker;
 pub mod eclipse_temurin;
-pub mod elixir;
+pub mod github;
 pub mod go;
-pub mod kong;
-pub mod kotlin;
-pub mod nginx;
 pub mod node;
 pub mod perl;
 pub mod php;
-pub mod python;
-pub mod ruby;
-pub mod rust;
-pub mod scala;
-pub mod swift;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -63,10 +53,9 @@ pub trait Collector: Send + Sync {
 }
 
 pub use apache::ApacheCollector;
-pub use caddy::CaddyCollector;
-pub use docker::DockerCollector;
 pub use eclipse_temurin::EclipseTemurinCollector;
-pub use elixir::ElixirCollector;
-pub use kong::KongCollector;
+pub use github::GitHubCollector;
+pub use go::GoCollector;
+pub use node::NodeCollector;
+pub use perl::PerlCollector;
 pub use php::PhpCollector;
-pub use python::PythonCollector;

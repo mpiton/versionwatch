@@ -16,10 +16,25 @@ pub enum Error {
     Io(#[from] std::io::Error),
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum Source {
+    GitHubReleases { repository: String },
+}
+
+#[derive(Debug, Deserialize, Clone)]
 pub struct Target {
     pub name: String,
     pub enabled: bool,
+    #[serde(rename = "type")]
+    pub source_type: Option<String>,
+    pub repository: Option<String>,
+    #[serde(default = "default_github_source")]
+    pub github_source: String,
+}
+
+fn default_github_source() -> String {
+    "releases".to_string()
 }
 
 #[derive(Debug, Deserialize)]
