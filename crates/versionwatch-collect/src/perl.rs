@@ -14,7 +14,7 @@ pub struct PerlCollector;
 
 #[async_trait]
 impl Collector for PerlCollector {
-    fn name(&self) -> &'static str {
+    fn name(&self) -> &str {
         "perl"
     }
 

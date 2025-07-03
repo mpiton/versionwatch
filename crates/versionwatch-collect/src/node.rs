@@ -15,7 +15,7 @@ pub struct NodeCollector;
 
 #[async_trait]
 impl Collector for NodeCollector {
-    fn name(&self) -> &'static str {
+    fn name(&self) -> &str {
         "node"
     }
 

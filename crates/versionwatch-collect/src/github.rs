@@ -2,6 +2,7 @@ use super::{Collector, Error, GitHubRelease, GitHubTag};
 use async_trait::async_trait;
 use polars::prelude::*;
 use semver::Version;
+use versionwatch_config::VersionCleaning;
 
 /// A collector for software that publishes releases on GitHub.
 pub struct GitHubCollector {
@@ -9,25 +10,46 @@ pub struct GitHubCollector {
     repo: String,
     github_token: Option<String>,
     source: String,
+    cleaning: VersionCleaning,
 }
 
 impl GitHubCollector {
-    pub fn new(name: String, repo: String, github_token: Option<String>, source: String) -> Self {
+    pub fn new(
+        name: String,
+        repo: String,
+        github_token: Option<String>,
+        source: String,
+        cleaning: VersionCleaning,
+    ) -> Self {
         Self {
             name,
             repo,
             github_token,
             source,
+            cleaning,
         }
+    }
+
+    fn clean_version(&self, version_str: String) -> String {
+        let mut version = version_str;
+        if let Some(prefix) = &self.cleaning.trim_prefix {
+            if let Some(trimmed) = version.strip_prefix(prefix) {
+                version = trimmed.to_string();
+            }
+        }
+        if let Some(suffix) = &self.cleaning.trim_suffix {
+            if let Some(trimmed) = version.strip_suffix(suffix) {
+                version = trimmed.to_string();
+            }
+        }
+        version.trim_start_matches('v').to_string()
     }
 }
 
 #[async_trait]
 impl Collector for GitHubCollector {
-    fn name(&self) -> &'static str {
-        // This is a bit of a hack to satisfy the trait bound.
-        // The name is dynamic, so we leak it to get a 'static lifetime.
-        Box::leak(self.name.clone().into_boxed_str())
+    fn name(&self) -> &str {
+        &self.name
     }
 
     async fn collect(&self) -> Result<DataFrame, Error> {
@@ -54,7 +76,7 @@ impl GitHubCollector {
             .find(|r| !r.prerelease && !r.draft)
             .ok_or(Error::NotFound)?;
 
-        let version = latest_release.tag_name.trim_start_matches('v').to_string();
+        let version = self.clean_version(latest_release.tag_name.clone());
 
         let df = df!(
             "name" => &[self.name.as_str()],
@@ -86,7 +108,7 @@ impl GitHubCollector {
             .map(|(_, tag)| tag)
             .ok_or(Error::NotFound)?;
 
-        let version_string = latest_tag.name.trim_start_matches('v').to_string();
+        let version_string = self.clean_version(latest_tag.name.clone());
 
         let release_notes_url = format!(
             "https://github.com/{}/releases/tag/{}",
@@ -107,42 +129,81 @@ impl GitHubCollector {
         Ok(df)
     }
 
-    async fn fetch<T: serde::de::DeserializeOwned>(&self, url: &str) -> Result<T, Error> {
+    async fn fetch<T: serde::de::DeserializeOwned>(
+        &self,
+        initial_url: &str,
+    ) -> Result<Vec<T>, Error> {
+        let mut results = Vec::new();
+        let mut next_url = Some(initial_url.to_string());
         let client = reqwest::Client::new();
-        let mut request = client
-            .get(url)
-            .header("User-Agent", "versionwatch-collector")
-            .header("Accept", "application/vnd.github.v3+json");
 
-        if let Some(token) = &self.github_token {
-            request = request.bearer_auth(token);
-        }
+        while let Some(url) = next_url {
+            let mut request = client
+                .get(&url)
+                .header("User-Agent", "versionwatch-collector")
+                .header("Accept", "application/vnd.github.v3+json");
 
-        let response = request.send().await?;
-
-        if response.status() == reqwest::StatusCode::FORBIDDEN
-            || response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS
-        {
-            if let Some(remaining) = response.headers().get("x-ratelimit-remaining") {
-                if remaining == "0" {
-                    let reset = response
-                        .headers()
-                        .get("x-ratelimit-reset")
-                        .and_then(|v| v.to_str().ok())
-                        .and_then(|s| s.parse::<u64>().ok());
-                    let wait = reset.unwrap_or(0);
-                    let wait_msg =
-                        format!("GitHub API rate limit exceeded. Try again in {wait} seconds.");
-                    return Err(Error::RateLimited(wait_msg));
-                }
+            if let Some(token) = &self.github_token {
+                request = request.bearer_auth(token);
             }
-            return Err(Error::Other(format!(
-                "GitHub API returned forbidden or rate limited: {}",
-                response.status()
-            )));
+
+            let response = request.send().await?;
+
+            if !response.status().is_success() {
+                return match response.status() {
+                    reqwest::StatusCode::FORBIDDEN => {
+                        let error_msg = if self.github_token.is_some() {
+                            "GitHub API returned 403 Forbidden. The token may be invalid or lack permissions."
+                        } else {
+                            "GitHub API returned 403 Forbidden. A GITHUB_TOKEN may be required for this repository."
+                        };
+                        Err(Error::Other(error_msg.to_string()))
+                    }
+                    reqwest::StatusCode::TOO_MANY_REQUESTS => {
+                        let reset = response
+                            .headers()
+                            .get("x-ratelimit-reset")
+                            .and_then(|v| v.to_str().ok())
+                            .and_then(|s| s.parse::<u64>().ok())
+                            .unwrap_or(0);
+                        let wait_msg = format!(
+                            "GitHub API rate limit exceeded. Try again in {reset} seconds."
+                        );
+                        Err(Error::RateLimited(wait_msg))
+                    }
+                    other => Err(Error::Other(format!(
+                        "GitHub API returned unexpected status: {other}"
+                    ))),
+                };
+            }
+
+            let link_header = response
+                .headers()
+                .get(reqwest::header::LINK)
+                .and_then(|v| v.to_str().ok());
+            next_url = parse_link_header(link_header);
+
+            let mut page_results: Vec<T> = response.json().await?;
+            results.append(&mut page_results);
         }
 
-        let data: T = response.json().await?;
-        Ok(data)
+        Ok(results)
     }
+}
+
+fn parse_link_header(header: Option<&str>) -> Option<String> {
+    header?.split(',').find_map(|part| {
+        let mut segments = part.split(';');
+        let url_part = segments.next()?;
+        let rel_part = segments.next()?;
+        if rel_part.trim() == "rel=\"next\"" {
+            let url = url_part
+                .trim()
+                .trim_start_matches('<')
+                .trim_end_matches('>');
+            Some(url.to_string())
+        } else {
+            None
+        }
+    })
 }

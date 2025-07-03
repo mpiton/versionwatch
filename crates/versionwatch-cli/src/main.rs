@@ -8,7 +8,7 @@ use versionwatch_collect::{
     github::GitHubCollector, go::GoCollector, node::NodeCollector, perl::PerlCollector,
     php::PhpCollector,
 };
-use versionwatch_config::load as load_config;
+use versionwatch_config::{Source, load as load_config};
 use versionwatch_core::domain::software_version::SoftwareVersion;
 use versionwatch_db::Db as Database;
 
@@ -35,23 +35,23 @@ async fn main() -> Result<()> {
         if !target.enabled {
             continue;
         }
-        let collector: Option<Arc<dyn Collector>> = if target.source_type.as_deref()
-            == Some("github")
-        {
-            if let Some(repository) = &target.repository {
-                let collector = GitHubCollector::new(
-                    target.name.clone(),
-                    repository.clone(),
-                    github_token.clone(),
-                    target.github_source.clone(),
-                );
-                Some(Arc::new(collector))
-            } else {
-                tracing::warn!(
-                    "GitHub collector for '{}' is missing 'repository' field.",
-                    target.name
-                );
-                None
+
+        let collector: Option<Arc<dyn Collector>> = if let Some(source) = &target.source {
+            match source {
+                Source::Github {
+                    repository,
+                    github_source,
+                    cleaning,
+                } => {
+                    let collector = GitHubCollector::new(
+                        target.name.clone(),
+                        repository.clone(),
+                        github_token.clone(),
+                        github_source.clone(),
+                        cleaning.clone(),
+                    );
+                    Some(Arc::new(collector))
+                }
             }
         } else {
             // Fallback to old mechanism for non-migrated collectors
@@ -63,10 +63,7 @@ async fn main() -> Result<()> {
                 "perl" => Arc::new(PerlCollector {}),
                 "apache" => Arc::new(ApacheCollector::new()),
                 _ => {
-                    tracing::warn!(
-                        "Unknown or non-migrated target: '{}'. It might be a GitHub collector without the 'type: github' field.",
-                        target.name
-                    );
+                    tracing::warn!("Unknown target without a 'type' field: '{}'", target.name);
                     continue;
                 }
             };
@@ -117,23 +114,9 @@ async fn main() -> Result<()> {
     }
 
     // --- Phase 2: Data Transformation ---
+    tracing::info!("Cleaning collected data...");
     let cleaned_df = final_df
         .lazy()
-        .with_column(
-            // Clean up the version string for specific collectors
-            when(col("name").eq(lit("swift")))
-                .then(col("latest_version").map(
-                    |s| {
-                        let transformed = s.str().unwrap().apply(|opt_v| {
-                            opt_v.map(|v| v.replace("swift-", "").replace("-RELEASE", "").into())
-                        });
-                        Ok(Some(transformed.into_series().into()))
-                    },
-                    GetOutput::from_type(DataType::String),
-                ))
-                .otherwise(col("latest_version"))
-                .alias("latest_version"),
-        )
         .with_column(
             // Clean up the LTS version string for Eclipse Temurin
             when(col("name").eq(lit("eclipse-temurin")))

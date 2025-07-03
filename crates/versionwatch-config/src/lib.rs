@@ -16,25 +16,34 @@ pub enum Error {
     Io(#[from] std::io::Error),
 }
 
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct VersionCleaning {
+    pub trim_prefix: Option<String>,
+    pub trim_suffix: Option<String>,
+}
+
 #[derive(Debug, Deserialize, Clone)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Source {
-    GitHubReleases { repository: String },
+    Github {
+        repository: String,
+        #[serde(default = "default_github_source")]
+        github_source: String,
+        #[serde(default)]
+        cleaning: VersionCleaning,
+    },
+}
+
+fn default_github_source() -> String {
+    "releases".to_string()
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Target {
     pub name: String,
     pub enabled: bool,
-    #[serde(rename = "type")]
-    pub source_type: Option<String>,
-    pub repository: Option<String>,
-    #[serde(default = "default_github_source")]
-    pub github_source: String,
-}
-
-fn default_github_source() -> String {
-    "releases".to_string()
+    #[serde(flatten)]
+    pub source: Option<Source>,
 }
 
 #[derive(Debug, Deserialize)]

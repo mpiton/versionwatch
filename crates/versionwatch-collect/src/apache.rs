@@ -22,7 +22,7 @@ impl Default for ApacheCollector {
 
 #[async_trait]
 impl Collector for ApacheCollector {
-    fn name(&self) -> &'static str {
+    fn name(&self) -> &str {
         "apache"
     }
 

@@ -5,12 +5,17 @@
 # Fields:
 #   name: The official name of the software. This must be unique.
 #   enabled: Set to `true` to track this software, `false` to ignore.
-#   type: (Optional) The type of collector to use. For GitHub, set this to "github".
-#         If omitted, a specific collector implementation must exist.
-#   repository: (Required if type is "github") The GitHub repository in "owner/repo" format.
-#   github_source: (Optional, for "github" type) The source for versioning.
-#                  Can be "releases" (default) or "tags". Use "tags" for projects
-#                  that use git tags for versioning instead of formal releases.
+#   type: (Optional) The type of collector to use.
+#         - For GitHub, set this to "github".
+#         - If omitted, a specific, non-generic collector implementation must exist.
+#
+# GitHub-specific fields (used when type is "github"):
+#   repository: The GitHub repository in "owner/repo" format.
+#   github_source: (Optional) The source for versioning.
+#                  Can be "releases" (default) or "tags".
+#   cleaning: (Optional) Rules to clean the version string.
+#     trim_prefix: A string to remove from the beginning of the version.
+#     trim_suffix: A string to remove from the end of the version.
 
 targets:
   - name: "node"
@@ -43,7 +48,7 @@ targets:
 
   - name: "nginx"
     enabled: true
-    type: "github_releases"
+    type: github
     repository: "nginx/nginx"
 
   - name: "ruby"
@@ -70,6 +75,9 @@ targets:
     enabled: true
     type: github
     repository: "apple/swift"
+    cleaning:
+      trim_prefix: "swift-"
+      trim_suffix: "-RELEASE"
 
   - name: "perl"
     enabled: true
@@ -84,6 +92,6 @@ targets:
 
   - name: "caddy"
     enabled: true
-    type: "github_releases"
+    type: github
     repository: "caddyserver/caddy"
     

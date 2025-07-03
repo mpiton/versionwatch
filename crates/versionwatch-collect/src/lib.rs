@@ -48,7 +48,7 @@ pub struct GitHubTag {
 
 #[async_trait]
 pub trait Collector: Send + Sync {
-    fn name(&self) -> &'static str;
+    fn name(&self) -> &str;
     async fn collect(&self) -> Result<DataFrame, Error>;
 }
 

@@ -23,7 +23,7 @@ pub struct EclipseTemurinCollector;
 
 #[async_trait]
 impl Collector for EclipseTemurinCollector {
-    fn name(&self) -> &'static str {
+    fn name(&self) -> &str {
         "eclipse-temurin"
     }
 
