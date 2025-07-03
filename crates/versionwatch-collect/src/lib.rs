@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use polars::prelude::*;
 
 pub mod apache;
+pub mod caddy;
 pub mod docker;
 pub mod eclipse_temurin;
 pub mod elixir;
@@ -62,5 +63,10 @@ pub trait Collector: Send + Sync {
 }
 
 pub use apache::ApacheCollector;
+pub use caddy::CaddyCollector;
+pub use docker::DockerCollector;
+pub use eclipse_temurin::EclipseTemurinCollector;
+pub use elixir::ElixirCollector;
 pub use kong::KongCollector;
 pub use php::PhpCollector;
+pub use python::PythonCollector;

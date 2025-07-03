@@ -19,6 +19,7 @@ logs/
 .idea/
 .vscode/
 .cursor/
+.cursorrules
 .windsurf/
 *.sublime-project
 *.sublime-workspace

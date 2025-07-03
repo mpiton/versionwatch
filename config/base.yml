@@ -51,4 +51,7 @@ targets:
 
   - name: "apache"
     enabled: true
+
+  - name: "caddy"
+    enabled: true
     
