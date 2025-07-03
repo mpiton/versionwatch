@@ -1,20 +1,44 @@
 # List of software targets to track.
 #
-# name: The official name of the software (e.g., as used in APIs).
-# enabled: Set to `true` to track this software, `false` to ignore.
+# Each target represents a piece of software to monitor.
+#
+# Fields:
+#   name: The official name of the software. This must be unique.
+#   enabled: Set to `true` to track this software, `false` to ignore.
+#   type: (Optional) The type of collector to use.
+#         - For GitHub, set this to "github".
+#         - If omitted, a specific, non-generic collector implementation must exist.
+#
+# GitHub-specific fields (used when type is "github"):
+#   repository: The GitHub repository in "owner/repo" format.
+#   github_source: (Optional) The source for versioning.
+#                  Can be "releases" (default) or "tags".
+#   cleaning: (Optional) Rules to clean the version string.
+#     trim_prefix: A string to remove from the beginning of the version.
+#     trim_suffix: A string to remove from the end of the version.
 
 targets:
+  # Non-GitHub collectors:
+  # These targets use a dedicated collector implementation and do not require a 'type' field.
+  # The collector is matched based on the 'name' field in `main.rs`.
   - name: "node"
     enabled: true
 
   - name: "docker"
     enabled: true
+    type: github
+    repository: "moby/moby"
 
   - name: "rust"
     enabled: true
+    type: github
+    repository: "rust-lang/rust"
 
   - name: "python"
     enabled: true
+    type: github
+    repository: "python/cpython"
+    github_source: "tags"
 
   - name: "eclipse-temurin"
     enabled: true
@@ -27,31 +51,50 @@ targets:
 
   - name: "nginx"
     enabled: true
+    type: github
+    repository: "nginx/nginx"
 
   - name: "ruby"
     enabled: true
+    type: github
+    repository: "ruby/ruby"
 
   - name: "elixir"
     enabled: true
+    type: github
+    repository: "elixir-lang/elixir"
 
   - name: "scala"
     enabled: true
+    type: github
+    repository: "scala/scala"
 
   - name: "kotlin"
     enabled: true
+    type: github
+    repository: "JetBrains/kotlin"
 
   - name: "swift"
     enabled: true
+    type: github
+    repository: "apple/swift"
+    cleaning:
+      trim_prefix: "swift-"
+      trim_suffix: "-RELEASE"
 
   - name: "perl"
     enabled: true
 
   - name: "kong"
     enabled: true
+    type: github
+    repository: "Kong/kong"
 
   - name: "apache"
     enabled: true
 
   - name: "caddy"
     enabled: true
+    type: github
+    repository: "caddyserver/caddy"
     

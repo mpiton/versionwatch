@@ -15,7 +15,7 @@ pub struct GoCollector;
 
 #[async_trait]
 impl Collector for GoCollector {
-    fn name(&self) -> &'static str {
+    fn name(&self) -> &str {
         "go"
     }
 

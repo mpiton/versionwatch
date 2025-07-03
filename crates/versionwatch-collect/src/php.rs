@@ -31,7 +31,7 @@ impl Default for PhpCollector {
 
 #[async_trait]
 impl Collector for PhpCollector {
-    fn name(&self) -> &'static str {
+    fn name(&self) -> &str {
         "php"
     }
 

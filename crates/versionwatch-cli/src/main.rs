@@ -4,13 +4,11 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing_subscriber::{EnvFilter, prelude::*};
 use versionwatch_collect::{
-    Collector, apache::ApacheCollector, caddy::CaddyCollector, docker::DockerCollector,
-    eclipse_temurin::EclipseTemurinCollector, elixir::ElixirCollector, go::GoCollector,
-    kong::KongCollector, kotlin::KotlinCollector, nginx::NginxCollector, node::NodeCollector,
-    perl::PerlCollector, php::PhpCollector, python::PythonCollector, ruby::RubyCollector,
-    rust::RustCollector, scala::ScalaCollector, swift::SwiftCollector,
+    Collector, apache::ApacheCollector, eclipse_temurin::EclipseTemurinCollector,
+    github::GitHubCollector, go::GoCollector, node::NodeCollector, perl::PerlCollector,
+    php::PhpCollector,
 };
-use versionwatch_config::load as load_config;
+use versionwatch_config::{Source, load as load_config};
 use versionwatch_core::domain::software_version::SoftwareVersion;
 use versionwatch_db::Db as Database;
 
@@ -37,30 +35,44 @@ async fn main() -> Result<()> {
         if !target.enabled {
             continue;
         }
-        let collector: Arc<dyn Collector> = match target.name.as_str() {
-            "node" => Arc::new(NodeCollector {}),
-            "docker" => Arc::new(DockerCollector::new(github_token.clone())),
-            "caddy" => Arc::new(CaddyCollector::new(github_token.clone())),
-            "rust" => Arc::new(RustCollector::new(github_token.clone())),
-            "python" => Arc::new(PythonCollector::new(github_token.clone())),
-            "eclipse-temurin" => Arc::new(EclipseTemurinCollector {}),
-            "go" => Arc::new(GoCollector {}),
-            "nginx" => Arc::new(NginxCollector::new(github_token.clone())),
-            "kong" => Arc::new(KongCollector::new(github_token.clone())),
-            "elixir" => Arc::new(ElixirCollector::new(github_token.clone())),
-            "php" => Arc::new(PhpCollector::default()),
-            "ruby" => Arc::new(RubyCollector {}),
-            "scala" => Arc::new(ScalaCollector::new(github_token.clone())),
-            "kotlin" => Arc::new(KotlinCollector::new(github_token.clone())),
-            "swift" => Arc::new(SwiftCollector::new(github_token.clone())),
-            "perl" => Arc::new(PerlCollector {}),
-            "apache" => Arc::new(ApacheCollector::new()),
-            _ => {
-                tracing::warn!("Unknown target: {}", target.name);
-                continue;
+
+        let collector: Option<Arc<dyn Collector>> = if let Some(source) = &target.source {
+            match source {
+                Source::Github {
+                    repository,
+                    github_source,
+                    cleaning,
+                } => {
+                    let collector = GitHubCollector::new(
+                        target.name.clone(),
+                        repository.clone(),
+                        github_token.clone(),
+                        github_source.clone(),
+                        cleaning.clone(),
+                    );
+                    Some(Arc::new(collector))
+                }
             }
+        } else {
+            // Fallback to old mechanism for non-migrated collectors
+            let collector: Arc<dyn Collector> = match target.name.as_str() {
+                "node" => Arc::new(NodeCollector {}),
+                "eclipse-temurin" => Arc::new(EclipseTemurinCollector {}),
+                "go" => Arc::new(GoCollector {}),
+                "php" => Arc::new(PhpCollector::default()),
+                "perl" => Arc::new(PerlCollector {}),
+                "apache" => Arc::new(ApacheCollector::new()),
+                _ => {
+                    tracing::warn!("Unknown target without a 'type' field: '{}'", target.name);
+                    continue;
+                }
+            };
+            Some(collector)
         };
-        collectors.push(collector);
+
+        if let Some(collector) = collector {
+            collectors.push(collector);
+        }
     }
 
     let mut handles = vec![];
@@ -106,18 +118,24 @@ async fn main() -> Result<()> {
     let cleaned_df = final_df
         .lazy()
         .with_column(
-            when(col("name").eq(lit("elixir")))
-                .then(col("latest_version").map(
+            // Clean up the LTS version string for Eclipse Temurin
+            when(col("name").eq(lit("eclipse-temurin")))
+                .then(col("latest_lts_version").map(
                     |s| {
-                        let ca = s.str().unwrap();
-                        let replaced =
-                            ca.apply(|opt_v| opt_v.map(|v| v.replace("-latest", "").into()));
-                        Ok(Some(replaced.into_series().into()))
+                        let transformed = s.str().unwrap().apply(|opt_v| {
+                            opt_v.map(|v| {
+                                v.trim_end_matches("-LTS")
+                                    .trim_end_matches(".LTS")
+                                    .to_string()
+                                    .into()
+                            })
+                        });
+                        Ok(Some(transformed.into_series().into()))
                     },
                     GetOutput::from_type(DataType::String),
                 ))
-                .otherwise(col("latest_version"))
-                .alias("latest_version"),
+                .otherwise(col("latest_lts_version"))
+                .alias("latest_lts_version"),
         )
         .collect()?;
 
