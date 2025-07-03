@@ -1,5 +1,6 @@
 use super::{Collector, Error, GitHubRelease, GitHubTag};
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use polars::prelude::*;
 use semver::Version;
 use versionwatch_config::VersionCleaning;
@@ -96,6 +97,10 @@ impl GitHubCollector {
         let url = format!("https://api.github.com/repos/{}/tags", self.repo);
         let tags: Vec<GitHubTag> = self.fetch(&url).await?;
 
+        if tags.is_empty() {
+            return Err(Error::NotFound);
+        }
+
         let latest_tag = tags
             .iter()
             .filter_map(|tag| {
@@ -106,7 +111,11 @@ impl GitHubCollector {
             })
             .max_by(|(v1, _), (v2, _)| v1.cmp(v2))
             .map(|(_, tag)| tag)
-            .ok_or(Error::NotFound)?;
+            .ok_or_else(|| {
+                Error::Other(
+                    "No stable tags found. All tags appear to be pre-releases.".to_string(),
+                )
+            })?;
 
         let version_string = self.clean_version(latest_tag.name.clone());
 
@@ -136,8 +145,20 @@ impl GitHubCollector {
         let mut results = Vec::new();
         let mut next_url = Some(initial_url.to_string());
         let client = reqwest::Client::new();
+        let mut page_count = 0;
+        const MAX_PAGES: u8 = 10; // Limit pagination to avoid excessive API calls
 
         while let Some(url) = next_url {
+            if page_count >= MAX_PAGES {
+                tracing::warn!(
+                    "Reached maximum page limit ({}) for {}. Results may be incomplete.",
+                    MAX_PAGES,
+                    self.repo
+                );
+                break;
+            }
+            page_count += 1;
+
             let mut request = client
                 .get(&url)
                 .header("User-Agent", "versionwatch-collector")
@@ -166,9 +187,18 @@ impl GitHubCollector {
                             .and_then(|v| v.to_str().ok())
                             .and_then(|s| s.parse::<u64>().ok())
                             .unwrap_or(0);
-                        let wait_msg = format!(
-                            "GitHub API rate limit exceeded. Try again in {reset} seconds."
-                        );
+
+                        let reset_time = DateTime::<Utc>::from_timestamp(reset as i64, 0)
+                            .map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string())
+                            .unwrap_or_else(|| {
+                                format!(
+                                    "{} seconds from now",
+                                    reset.saturating_sub(Utc::now().timestamp() as u64)
+                                )
+                            });
+
+                        let wait_msg =
+                            format!("GitHub API rate limit exceeded. Try again at {reset_time}.");
                         Err(Error::RateLimited(wait_msg))
                     }
                     other => Err(Error::Other(format!(

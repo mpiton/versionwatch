@@ -18,6 +18,9 @@
 #     trim_suffix: A string to remove from the end of the version.
 
 targets:
+  # Non-GitHub collectors:
+  # These targets use a dedicated collector implementation and do not require a 'type' field.
+  # The collector is matched based on the 'name' field in `main.rs`.
   - name: "node"
     enabled: true
 
