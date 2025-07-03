@@ -4,7 +4,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing_subscriber::{EnvFilter, prelude::*};
 use versionwatch_collect::{
-    Collector, apache::ApacheCollector, docker::DockerCollector,
+    Collector, apache::ApacheCollector, caddy::CaddyCollector, docker::DockerCollector,
     eclipse_temurin::EclipseTemurinCollector, elixir::ElixirCollector, go::GoCollector,
     kong::KongCollector, kotlin::KotlinCollector, nginx::NginxCollector, node::NodeCollector,
     perl::PerlCollector, php::PhpCollector, python::PythonCollector, ruby::RubyCollector,
@@ -40,6 +40,7 @@ async fn main() -> Result<()> {
         let collector: Arc<dyn Collector> = match target.name.as_str() {
             "node" => Arc::new(NodeCollector {}),
             "docker" => Arc::new(DockerCollector::new(github_token.clone())),
+            "caddy" => Arc::new(CaddyCollector::new(github_token.clone())),
             "rust" => Arc::new(RustCollector::new(github_token.clone())),
             "python" => Arc::new(PythonCollector::new(github_token.clone())),
             "eclipse-temurin" => Arc::new(EclipseTemurinCollector {}),
