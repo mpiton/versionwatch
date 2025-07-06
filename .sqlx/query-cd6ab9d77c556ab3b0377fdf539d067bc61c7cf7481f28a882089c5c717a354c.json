@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO cycles (product_id, name, release_date, eol_date, lts)\n            VALUES ($1, $2, $3, $4, $5)\n            ON CONFLICT (product_id, name) DO UPDATE\n            SET\n                release_date = EXCLUDED.release_date,\n                eol_date = EXCLUDED.eol_date,\n                lts = EXCLUDED.lts,\n                updated_at = NOW()\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Varchar",
+        "Date",
+        "Date",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cd6ab9d77c556ab3b0377fdf539d067bc61c7cf7481f28a882089c5c717a354c"
+}

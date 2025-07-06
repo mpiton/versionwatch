@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO products (name, display_name)\n            VALUES ($1, $1)\n            ON CONFLICT (name) DO UPDATE\n            SET name = EXCLUDED.name\n            RETURNING id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Varchar"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "077f2c77faaf9f13792c6b44402fa14fc94e0024b6aac2ca28afe4367c1d5594"
+}

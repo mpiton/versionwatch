@@ -20,6 +20,7 @@ logs/
 .vscode/
 .cursor/
 .cursorrules
+.specstory/
 .windsurf/
 *.sublime-project
 *.sublime-workspace
@@ -42,3 +43,15 @@ Thumbs.db
 # Test coverage reports
 /coverage/
 *.profraw
+
+# Generated reports and exports
+report.html
+test_export.json
+test_*.html
+
+# TypeScript build cache
+*.tsbuildinfo
+
+# Development tools and IDE cache
+.specstory/
+.cursor/

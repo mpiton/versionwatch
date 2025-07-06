@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 serde = { workspace = true }
 time = { workspace = true, features = ["serde", "macros"] }
+chrono = { workspace = true }

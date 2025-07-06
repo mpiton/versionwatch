@@ -1,7 +1,7 @@
-use super::{Collector, Error};
+use crate::{Collector, Error, ProductCycle, product_cycles_to_dataframe};
 use anyhow::anyhow;
 use async_trait::async_trait;
-use polars::prelude::*;
+use polars::prelude::DataFrame;
 use regex::Regex;
 use reqwest::StatusCode;
 use std::collections::BTreeSet;
@@ -27,66 +27,93 @@ impl Collector for ApacheCollector {
     }
 
     async fn collect(&self) -> Result<DataFrame, Error> {
-        let url = "https://downloads.apache.org/httpd/";
         let client = reqwest::Client::new();
+        let mut versions = BTreeSet::new();
+
+        // 1. Récupérer les versions actuelles depuis la page principale
+        let current_url = "https://downloads.apache.org/httpd/";
         let response = client
-            .get(url)
-            .header("User-Agent", "versionwatch-collector")
+            .get(current_url)
             .send()
             .await
-            .map_err(|e| Error::Other(format!("Failed to fetch Apache download page: {e}")))?;
+            .map_err(|e| Error::Other(anyhow!("Failed to fetch Apache download page: {e}")))?;
 
         if response.status() != StatusCode::OK {
-            return Err(Error::Other(format!(
+            return Err(Error::Other(anyhow!(
                 "Apache download page returned status {}",
                 response.status()
             )));
         }
 
-        let body = response
+        let html = response
             .text()
             .await
-            .map_err(|e| Error::Other(format!("Failed to read Apache download page: {e}")))?;
+            .map_err(|e| Error::Other(anyhow!("Failed to read Apache download page: {e}")))?;
 
-        // Regex: only match httpd-X.Y.Z.tar.gz (no extra dot or dash after patch)
-        let re = Regex::new(r"httpd-(\d+)\.(\d+)\.(\d+)\.tar\.gz")
-            .map_err(|e| Error::Other(format!("Invalid regex pattern: {e}")))?;
-        let mut versions = BTreeSet::new();
-        for cap in re.captures_iter(&body) {
-            let major: u32 = cap[1]
-                .parse()
-                .map_err(|_| Error::Other(format!("Invalid major version: {}", &cap[1])))?;
-            let minor: u32 = cap[2]
-                .parse()
-                .map_err(|_| Error::Other(format!("Invalid minor version: {}", &cap[2])))?;
-            let patch: u32 = cap[3]
-                .parse()
-                .map_err(|_| Error::Other(format!("Invalid patch version: {}", &cap[3])))?;
-            // Only consider 2.x.x and above (ignore legacy 1.x)
-            if major >= 2 {
-                versions.insert((major, minor, patch));
+        // Pattern pour les versions actuelles: httpd-2.4.63.tar.gz
+        let current_regex = Regex::new(r"httpd-(\d+\.\d+\.\d+)\.tar\.gz")
+            .map_err(|e| Error::Other(anyhow!("Invalid regex pattern: {e}")))?;
+
+        for cap in current_regex.captures_iter(&html) {
+            let version = cap[1].to_string();
+            versions.insert(version);
+        }
+
+        // 2. Récupérer les versions historiques depuis l'archive
+        let archive_url = "http://archive.apache.org/dist/httpd/";
+        let response = client
+            .get(archive_url)
+            .send()
+            .await
+            .map_err(|e| Error::Other(anyhow!("Failed to fetch Apache archive page: {e}")))?;
+
+        if response.status() != StatusCode::OK {
+            return Err(Error::Other(anyhow!(
+                "Apache archive page returned status {}",
+                response.status()
+            )));
+        }
+
+        let html = response
+            .text()
+            .await
+            .map_err(|e| Error::Other(anyhow!("Failed to read Apache archive page: {e}")))?;
+
+        // Patterns pour les versions historiques
+        let patterns = vec![
+            // Apache 1.3.x: apache_1.3.42.tar.gz
+            r"apache_(\d+\.\d+\.\d+)\.tar\.gz",
+            // Apache 2.0.x: httpd-2.0.65.tar.gz
+            r"httpd-(\d+\.\d+\.\d+)\.tar\.gz",
+            // Apache 2.2.x: httpd-2.2.34.tar.gz
+            r"httpd-(\d+\.\d+\.\d+)\.tar\.gz",
+            // Apache 2.4.x: httpd-2.4.63.tar.gz
+            r"httpd-(\d+\.\d+\.\d+)\.tar\.gz",
+        ];
+
+        for pattern in patterns {
+            let regex = Regex::new(pattern)
+                .map_err(|e| Error::Other(anyhow!("Invalid regex pattern: {e}")))?;
+
+            for cap in regex.captures_iter(&html) {
+                let version = cap[1].to_string();
+                versions.insert(version);
             }
         }
 
-        if versions.is_empty() {
-            tracing::error!("No stable Apache versions found on download page");
-            return Err(Error::Other("No stable Apache versions found".to_string()));
+        // 3. Convertir les versions en ProductCycle
+        let mut cycles = Vec::new();
+        for version in versions {
+            let cycle = ProductCycle {
+                name: version.clone(),
+                release_date: None,
+                eol_date: None,
+                lts: false,
+            };
+            cycles.push(cycle);
         }
-        let latest_version = versions
-            .iter()
-            .max()
-            .ok_or_else(|| anyhow!("No valid Apache versions found on the download page"))?;
 
-        let df = polars::df!(
-            "name" => &["apache"],
-            "current_version" => &[None::<String>],
-            "latest_version" => &[format!("{}.{}.{}", latest_version.0, latest_version.1, latest_version.2)],
-            "latest_lts_version" => &[None::<String>],
-            "is_lts" => &[false],
-            "eol_date" => &[None::<i64>],
-            "release_notes_url" => &[Some(format!("https://downloads.apache.org/httpd/CHANGES_{}.{}", latest_version.0, latest_version.1))],
-            "cve_count" => &[0_i32],
-        ).map_err(|e| Error::Other(e.to_string()))?;
-        Ok(df)
+        // 4. Convertir en DataFrame
+        product_cycles_to_dataframe(cycles).map_err(Error::from)
     }
 }
