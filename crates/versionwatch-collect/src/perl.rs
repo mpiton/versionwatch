@@ -1,13 +1,34 @@
-use crate::{Collector, Error};
+use crate::{Collector, Error, ProductCycle, product_cycles_to_dataframe};
 use async_trait::async_trait;
-use polars::prelude::*;
+use polars::prelude::DataFrame;
 use serde::Deserialize;
+use std::collections::HashMap;
 
-const PERL_RELEASES_URL: &str = "https://fastapi.metacpan.org/release/perl";
+const PERL_RELEASES_URL: &str =
+    "https://fastapi.metacpan.org/v1/release/_search?q=distribution:perl&size=1000";
 
 #[derive(Debug, Deserialize)]
-struct MetaCpanResponse {
+struct MetaCpanSearchResponse {
+    hits: MetaCpanHits,
+}
+
+#[derive(Debug, Deserialize)]
+struct MetaCpanHits {
+    hits: Vec<MetaCpanHit>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MetaCpanHit {
+    #[serde(rename = "_source")]
+    source: MetaCpanRelease,
+}
+
+#[derive(Debug, Deserialize)]
+struct MetaCpanRelease {
     version: String,
+    date: String,
+    status: String,
+    maturity: String,
 }
 
 pub struct PerlCollector;
@@ -19,32 +40,61 @@ impl Collector for PerlCollector {
     }
 
     async fn collect(&self) -> Result<DataFrame, Error> {
-        let response: MetaCpanResponse = reqwest::get(PERL_RELEASES_URL).await?.json().await?;
+        let response: MetaCpanSearchResponse =
+            reqwest::get(PERL_RELEASES_URL).await?.json().await?;
 
-        let version_parts: Vec<&str> = response.version.split('.').collect();
-        let major = version_parts.first().unwrap_or(&"");
-        let minor = version_parts
-            .get(1)
-            .map(|s| s.parse::<i32>().unwrap_or(0) / 1000)
-            .unwrap_or(0);
-        let patch = version_parts
-            .get(1)
-            .map(|s| s.parse::<i32>().unwrap_or(0) % 1000)
-            .unwrap_or(0);
+        let mut version_map = HashMap::new();
 
-        let latest_version = format!("{major}.{minor}.{patch}");
+        for hit in response.hits.hits {
+            let release = hit.source;
 
-        let df = df!(
-            "name" => &["perl"],
-            "current_version" => &[""],
-            "latest_version" => &[latest_version],
-            "latest_lts_version" => &[None::<String>],
-            "is_lts" => &[false],
-            "eol_date" => &[None::<i64>],
-            "release_notes_url" => &[Some("https://metacpan.org/pod/perldelta".to_string())],
-            "cve_count" => &[0_i32],
-        )?;
+            // Only keep stable releases from CPAN (not development versions)
+            if release.status != "cpan" || release.maturity != "released" {
+                continue;
+            }
 
-        Ok(df)
+            // Skip development versions (those with underscores)
+            if release.version.contains("_") {
+                continue;
+            }
+
+            // Parse version to ensure it's a valid Perl version (5.x.x format)
+            let version_parts: Vec<&str> = release.version.split('.').collect();
+            if version_parts.len() >= 2 {
+                if let Ok(major) = version_parts[0].parse::<u32>() {
+                    if major >= 5 {
+                        // Parse release date
+                        let release_date = chrono::DateTime::parse_from_rfc3339(&release.date)
+                            .ok()
+                            .map(|dt| dt.naive_utc().date());
+
+                        version_map.insert(release.version.clone(), release_date);
+                    }
+                }
+            }
+        }
+
+        let mut cycles: Vec<ProductCycle> = version_map
+            .into_iter()
+            .map(|(version, release_date)| ProductCycle {
+                name: version,
+                release_date,
+                eol_date: None, // Perl doesn't have official EOL dates
+                lts: false,     // Perl doesn't have LTS versions
+            })
+            .collect();
+
+        // Sort by version number
+        cycles.sort_by(|a, b| {
+            let a_parts: Vec<u32> = a.name.split('.').filter_map(|s| s.parse().ok()).collect();
+            let b_parts: Vec<u32> = b.name.split('.').filter_map(|s| s.parse().ok()).collect();
+            a_parts.cmp(&b_parts)
+        });
+
+        if cycles.is_empty() {
+            return Err(Error::NotFound);
+        }
+
+        product_cycles_to_dataframe(cycles).map_err(Error::from)
     }
 }

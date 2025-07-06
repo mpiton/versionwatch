@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 config = { workspace = true }
+dotenvy = { workspace = true }
 serde = { workspace = true }
 serde_yaml = { workspace = true }
 thiserror = { workspace = true }

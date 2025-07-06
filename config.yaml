@@ -1,0 +1,43 @@
+github_token: ""
+
+targets:
+  - name: rust
+    enabled: true
+  - name: python
+    enabled: true
+  - name: node
+    enabled: true
+  - name: go
+    enabled: true
+  - name: java
+    enabled: false
+  - name: php
+    enabled: true
+  - name: ruby
+    enabled: true
+  - name: kotlin
+    enabled: true
+  - name: scala
+    enabled: true
+  - name: swift
+    enabled: true
+  - name: nginx
+    enabled: true
+  - name: apache
+    enabled: true
+  - name: mysql
+    enabled: true
+  - name: postgresql
+    enabled: true
+  - name: mongodb
+    enabled: true
+  - name: docker
+    enabled: true
+  - name: kong
+    enabled: true
+  - name: caddy
+    enabled: true
+  - name: eclipse-temurin
+    enabled: true
+  - name: perl
+    enabled: true 

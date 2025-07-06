@@ -1,49 +1,67 @@
-use super::{Collector, Error, GitHubRelease, GitHubTag};
+use super::Error;
+use crate::{Collector, product_cycles_to_dataframe};
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
-use polars::prelude::*;
+use futures::stream::{self, StreamExt};
+use polars::prelude::DataFrame;
+use regex::Regex;
 use semver::Version;
-use versionwatch_config::VersionCleaning;
+use serde::Deserialize;
+use std::time::Duration;
+use versionwatch_core::domain::product_cycle::ProductCycle;
+
+#[derive(Debug, Clone)]
+pub enum GitHubSource {
+    Releases,
+    Tags,
+}
+
+#[derive(Debug, Deserialize)]
+struct GitHubRelease {
+    tag_name: String,
+    published_at: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GitHubTag {
+    name: String,
+    commit: CommitInfo,
+}
+
+#[derive(Debug, Deserialize)]
+struct CommitInfo {
+    url: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct GitHubCommit {
+    commit: CommitDetails,
+}
+
+#[derive(Debug, Deserialize)]
+struct CommitDetails {
+    committer: Committer,
+}
+
+#[derive(Debug, Deserialize)]
+struct Committer {
+    date: chrono::DateTime<chrono::Utc>,
+}
 
 /// A collector for software that publishes releases on GitHub.
+#[derive(Clone, Debug)]
 pub struct GitHubCollector {
     name: String,
-    repo: String,
-    github_token: Option<String>,
-    source: String,
-    cleaning: VersionCleaning,
+    repository: String,
+    source: GitHubSource,
 }
 
 impl GitHubCollector {
-    pub fn new(
-        name: String,
-        repo: String,
-        github_token: Option<String>,
-        source: String,
-        cleaning: VersionCleaning,
-    ) -> Self {
+    pub fn new(name: &str, repository: &str, source: GitHubSource) -> Self {
         Self {
-            name,
-            repo,
-            github_token,
+            name: name.to_string(),
+            repository: repository.to_string(),
             source,
-            cleaning,
         }
-    }
-
-    fn clean_version(&self, version_str: String) -> String {
-        let mut version = version_str;
-        if let Some(prefix) = &self.cleaning.trim_prefix {
-            if let Some(trimmed) = version.strip_prefix(prefix) {
-                version = trimmed.to_string();
-            }
-        }
-        if let Some(suffix) = &self.cleaning.trim_suffix {
-            if let Some(trimmed) = version.strip_suffix(suffix) {
-                version = trimmed.to_string();
-            }
-        }
-        version.trim_start_matches('v').to_string()
     }
 }
 
@@ -54,186 +72,166 @@ impl Collector for GitHubCollector {
     }
 
     async fn collect(&self) -> Result<DataFrame, Error> {
-        if self.source == "releases" {
-            self.collect_from_releases().await
-        } else if self.source == "tags" {
-            self.collect_from_tags().await
-        } else {
-            Err(Error::Other(format!(
-                "Unsupported GitHub source: {}",
-                self.source
-            )))
+        match self.source {
+            GitHubSource::Releases => self.collect_from_releases().await,
+            GitHubSource::Tags => self.collect_from_tags().await,
         }
     }
 }
 
 impl GitHubCollector {
     async fn collect_from_releases(&self) -> Result<DataFrame, Error> {
-        let url = format!("https://api.github.com/repos/{}/releases", self.repo);
+        let url = format!("https://api.github.com/repos/{}/releases", self.repository);
         let releases: Vec<GitHubRelease> = self.fetch(&url).await?;
+        let re = Regex::new(r"(\d+[\._]\d+([\._]\d+)?)").unwrap();
 
-        let latest_release = releases
-            .into_iter()
-            .find(|r| !r.prerelease && !r.draft)
-            .ok_or(Error::NotFound)?;
+        let mut cycles = Vec::new();
+        for release in releases {
+            if let Some(captures) = re.captures(&release.tag_name) {
+                let version_str = captures.get(1).unwrap().as_str();
+                let clean_version = version_str.replace('_', ".");
 
-        let version = self.clean_version(latest_release.tag_name.clone());
+                if let Ok(version) = Version::parse(&clean_version) {
+                    let release_date = release.published_at.and_then(|date_str: String| {
+                        chrono::DateTime::parse_from_rfc3339(&date_str)
+                            .map(|dt| dt.naive_utc().date())
+                            .ok()
+                    });
 
-        let df = df!(
-            "name" => &[self.name.as_str()],
-            "current_version" => &[""],
-            "latest_version" => &[version],
-            "latest_lts_version" => &[None::<String>],
-            "is_lts" => &[false],
-            "eol_date" => &[None::<i64>],
-            "release_notes_url" => &[Some(latest_release.html_url)],
-            "cve_count" => &[0_i32],
-        )?;
+                    cycles.push(ProductCycle {
+                        name: version.to_string(),
+                        release_date,
+                        eol_date: None,
+                        lts: false,
+                    });
+                }
+            }
+        }
 
-        Ok(df)
-    }
-
-    async fn collect_from_tags(&self) -> Result<DataFrame, Error> {
-        let url = format!("https://api.github.com/repos/{}/tags", self.repo);
-        let tags: Vec<GitHubTag> = self.fetch(&url).await?;
-
-        if tags.is_empty() {
+        if cycles.is_empty() {
             return Err(Error::NotFound);
         }
 
-        let latest_tag = tags
-            .iter()
-            .filter_map(|tag| {
-                Version::parse(tag.name.trim_start_matches('v'))
-                    .ok()
-                    .filter(|v| v.pre.is_empty())
-                    .map(|v| (v, tag))
-            })
-            .max_by(|(v1, _), (v2, _)| v1.cmp(v2))
-            .map(|(_, tag)| tag)
-            .ok_or_else(|| {
-                Error::Other(
-                    "No stable tags found. All tags appear to be pre-releases.".to_string(),
-                )
-            })?;
-
-        let version_string = self.clean_version(latest_tag.name.clone());
-
-        let release_notes_url = format!(
-            "https://github.com/{}/releases/tag/{}",
-            self.repo, latest_tag.name
-        );
-
-        let df = df!(
-            "name" => &[self.name.as_str()],
-            "current_version" => &[""],
-            "latest_version" => &[version_string],
-            "latest_lts_version" => &[None::<String>],
-            "is_lts" => &[false],
-            "eol_date" => &[None::<i64>],
-            "release_notes_url" => &[Some(release_notes_url)],
-            "cve_count" => &[0_i32],
-        )?;
-
-        Ok(df)
+        product_cycles_to_dataframe(cycles).map_err(Error::from)
     }
 
-    async fn fetch<T: serde::de::DeserializeOwned>(
-        &self,
-        initial_url: &str,
-    ) -> Result<Vec<T>, Error> {
-        let mut results = Vec::new();
-        let mut next_url = Some(initial_url.to_string());
-        let client = reqwest::Client::new();
-        let mut page_count = 0;
-        const MAX_PAGES: u8 = 10; // Limit pagination to avoid excessive API calls
+    async fn collect_from_tags(&self) -> Result<DataFrame, Error> {
+        let url = format!("https://api.github.com/repos/{}/tags", self.repository);
+        let tags: Vec<GitHubTag> = self.fetch(&url).await?;
+        let re = Regex::new(r"(\d+[\._]\d+([\._]\d+)?)").unwrap();
 
-        while let Some(url) = next_url {
-            if page_count >= MAX_PAGES {
-                tracing::warn!(
+        let versions_with_urls: Vec<(String, String)> = tags
+            .into_iter()
+            .filter_map(|tag: GitHubTag| {
+                re.captures(&tag.name).map(|caps| {
+                    let version_str = caps.get(1).unwrap().as_str();
+                    let clean_version = version_str.replace('_', ".");
+                    (clean_version, tag.commit.url)
+                })
+            })
+            .collect();
+
+        let client = reqwest::Client::builder()
+            .user_agent("versionwatch")
+            .build()?;
+
+        let cycles: Vec<ProductCycle> = stream::iter(versions_with_urls)
+            .map(|(version, url)| {
+                let client = client.clone();
+                async move {
+                    if let Ok(parsed_version) = Version::parse(&version) {
+                        tokio::time::sleep(Duration::from_millis(100)).await;
+                        let resp = client.get(&url).send().await;
+                        let release_date = match resp {
+                            Ok(r) => {
+                                let commit: Result<GitHubCommit, _> = r.json().await;
+                                commit
+                                    .ok()
+                                    .map(|c| c.commit.committer.date.naive_utc().date())
+                            }
+                            Err(_) => None,
+                        };
+
+                        Some(ProductCycle {
+                            name: parsed_version.to_string(),
+                            release_date,
+                            eol_date: None,
+                            lts: false,
+                        })
+                    } else {
+                        None
+                    }
+                }
+            })
+            .buffer_unordered(10)
+            .filter_map(|x| async { x })
+            .collect()
+            .await;
+
+        if cycles.is_empty() {
+            return Err(Error::NotFound);
+        }
+
+        product_cycles_to_dataframe(cycles).map_err(Error::from)
+    }
+
+    async fn fetch<T>(&self, url: &str) -> Result<Vec<T>, Error>
+    where
+        T: for<'de> Deserialize<'de>,
+    {
+        const MAX_PAGES: usize = 10;
+        let mut page = 1;
+        let mut all_items = Vec::new();
+
+        let client = reqwest::Client::builder()
+            .user_agent("versionwatch")
+            .build()?;
+
+        loop {
+            if page > MAX_PAGES {
+                eprintln!(
                     "Reached maximum page limit ({}) for {}. Results may be incomplete.",
-                    MAX_PAGES,
-                    self.repo
+                    MAX_PAGES, self.repository
                 );
                 break;
             }
-            page_count += 1;
 
-            let mut request = client
-                .get(&url)
-                .header("User-Agent", "versionwatch-collector")
+            let page_url = format!("{url}?page={page}&per_page=100");
+            let request = client
+                .get(&page_url)
                 .header("Accept", "application/vnd.github.v3+json");
-
-            if let Some(token) = &self.github_token {
-                request = request.bearer_auth(token);
-            }
 
             let response = request.send().await?;
 
             if !response.status().is_success() {
                 return match response.status() {
-                    reqwest::StatusCode::FORBIDDEN => {
-                        let error_msg = if self.github_token.is_some() {
-                            "GitHub API returned 403 Forbidden. The token may be invalid or lack permissions."
-                        } else {
-                            "GitHub API returned 403 Forbidden. A GITHUB_TOKEN may be required for this repository."
-                        };
-                        Err(Error::Other(error_msg.to_string()))
-                    }
-                    reqwest::StatusCode::TOO_MANY_REQUESTS => {
-                        let reset = response
-                            .headers()
-                            .get("x-ratelimit-reset")
-                            .and_then(|v| v.to_str().ok())
-                            .and_then(|s| s.parse::<u64>().ok())
-                            .unwrap_or(0);
-
-                        let reset_time = DateTime::<Utc>::from_timestamp(reset as i64, 0)
-                            .map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string())
-                            .unwrap_or_else(|| {
-                                format!(
-                                    "{} seconds from now",
-                                    reset.saturating_sub(Utc::now().timestamp() as u64)
-                                )
-                            });
-
-                        let wait_msg =
-                            format!("GitHub API rate limit exceeded. Try again at {reset_time}.");
-                        Err(Error::RateLimited(wait_msg))
-                    }
-                    other => Err(Error::Other(format!(
-                        "GitHub API returned unexpected status: {other}"
+                    reqwest::StatusCode::FORBIDDEN => Err(Error::Other(anyhow::anyhow!(
+                        "GitHub API returned 403 Forbidden. A GITHUB_TOKEN may be required for this repository."
+                    ))),
+                    reqwest::StatusCode::TOO_MANY_REQUESTS => Err(Error::RateLimited(
+                        "GitHub API rate limit exceeded".to_string(),
+                    )),
+                    _ => Err(Error::Other(anyhow::anyhow!(
+                        "GitHub API request failed with status: {}",
+                        response.status()
                     ))),
                 };
             }
 
-            let link_header = response
-                .headers()
-                .get(reqwest::header::LINK)
-                .and_then(|v| v.to_str().ok());
-            next_url = parse_link_header(link_header);
+            let items: Vec<T> = response.json().await?;
 
-            let mut page_results: Vec<T> = response.json().await?;
-            results.append(&mut page_results);
+            if items.is_empty() {
+                break;
+            }
+
+            all_items.extend(items);
+            page += 1;
         }
 
-        Ok(results)
+        if all_items.is_empty() {
+            return Err(Error::NotFound);
+        }
+
+        Ok(all_items)
     }
-}
-
-fn parse_link_header(header: Option<&str>) -> Option<String> {
-    header?.split(',').find_map(|part| {
-        let mut segments = part.split(';');
-        let url_part = segments.next()?;
-        let rel_part = segments.next()?;
-        if rel_part.trim() == "rel=\"next\"" {
-            let url = url_part
-                .trim()
-                .trim_start_matches('<')
-                .trim_end_matches('>');
-            Some(url.to_string())
-        } else {
-            None
-        }
-    })
 }
