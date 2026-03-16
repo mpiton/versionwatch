@@ -1,14 +1,15 @@
 import { useState } from 'react'
 import { ViewType } from './types'
-import { useDashboardData, useTooltipStyles } from './hooks'
+import { useDashboardData } from './hooks'
 import { Header, Navigation } from './components/layout'
 import { Loading } from './components/ui'
 import { Overview, Collectors, Analytics, Logs } from './views'
-import { commonStyles } from './styles/common'
+import { Button } from "@/components/ui/button"
+import { RefreshCw } from "lucide-react"
 
 function App() {
   const [currentView, setCurrentView] = useState<ViewType>('overview')
-  
+
   const {
     metrics,
     loading,
@@ -19,34 +20,20 @@ function App() {
     manualRefresh
   } = useDashboardData()
 
-  // Initialize tooltip styles
-  useTooltipStyles()
-
   if (loading) {
     return <Loading message="Loading VersionWatch dashboard..." />
   }
 
   if (error) {
     return (
-      <div style={commonStyles.loading}>
-        <div style={commonStyles.loadingCard}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>❌</div>
-          <div style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>Error loading dashboard</div>
-          <div style={{ fontSize: '0.9rem', color: '#f44336' }}>{error}</div>
-          <button
-            onClick={manualRefresh}
-            style={{
-              marginTop: '1rem',
-              padding: '0.5rem 1rem',
-              backgroundColor: '#667eea',
-              color: 'white',
-              border: 'none',
-              borderRadius: '0.5rem',
-              cursor: 'pointer'
-            }}
-          >
-            Retry
-          </button>
+      <div className="min-h-screen bg-gradient-to-br from-[#667eea] to-[#764ba2] flex items-center justify-center font-sans">
+        <div className="text-center text-white p-8 bg-white/10 rounded-2xl">
+          <div className="text-5xl mb-4">❌</div>
+          <div className="text-xl mb-4">Error loading dashboard</div>
+          <div className="text-sm text-red-300">{error}</div>
+          <Button onClick={manualRefresh} className="mt-4">
+            <RefreshCw className="h-4 w-4 mr-1" /> Retry
+          </Button>
         </div>
       </div>
     )
@@ -66,7 +53,7 @@ function App() {
         return <Analytics metrics={metrics} />
       case 'logs':
         return (
-          <Logs 
+          <Logs
             metrics={metrics}
             lastRefresh={lastRefresh}
             isAutoRefresh={isAutoRefresh}
@@ -79,20 +66,20 @@ function App() {
   }
 
   return (
-    <div style={commonStyles.container}>
+    <div className="min-h-screen bg-gradient-to-br from-[#667eea] to-[#764ba2] font-sans text-white">
       <Header
         lastRefresh={lastRefresh}
         isAutoRefresh={isAutoRefresh}
         onRefreshToggle={toggleAutoRefresh}
         onManualRefresh={manualRefresh}
       />
-      
+
       <Navigation
         currentView={currentView}
         onViewChange={setCurrentView}
       />
-      
-      <main style={commonStyles.content}>
+
+      <main className="p-8">
         {renderView()}
       </main>
     </div>

@@ -1,6 +1,7 @@
 import React from 'react'
 import { DashboardMetrics } from '../types'
-import { commonStyles } from '../styles/common'
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ScrollText } from "lucide-react"
 
 interface LogsProps {
   metrics: DashboardMetrics
@@ -9,11 +10,11 @@ interface LogsProps {
   refreshInterval: number
 }
 
-export const Logs: React.FC<LogsProps> = ({ 
-  metrics, 
-  lastRefresh, 
-  isAutoRefresh, 
-  refreshInterval = 30 
+export const Logs: React.FC<LogsProps> = ({
+  metrics,
+  lastRefresh,
+  isAutoRefresh,
+  refreshInterval = 30
 }) => {
   const logEntries = [
     {
@@ -54,27 +55,24 @@ export const Logs: React.FC<LogsProps> = ({
   }
 
   return (
-    <div style={commonStyles.card}>
-      <h2 style={commonStyles.cardTitle}>
-        📜 System Activity & Logs
-      </h2>
-      <div style={{
-        backgroundColor: '#f5f5f5',
-        padding: '1rem',
-        borderRadius: '0.5rem',
-        fontFamily: 'monospace',
-        fontSize: '0.9rem',
-        maxHeight: '400px',
-        overflowY: 'auto'
-      }}>
-        {logEntries.map((entry, index) => (
-          <div key={index} style={{ marginBottom: '0.5rem' }}>
-            <span style={{ color: entry.color }}>[{entry.time}]</span> 
-            <span style={{ color: entry.level === 'ERROR' ? entry.color : '#666' }}> {entry.level}: </span>
-            {entry.message}
-          </div>
-        ))}
-      </div>
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <ScrollText className="h-5 w-5" />
+          System Activity &amp; Logs
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="bg-muted p-4 rounded-lg font-mono text-sm max-h-[400px] overflow-y-auto">
+          {logEntries.map((entry, index) => (
+            <div key={index} className="mb-2">
+              <span style={{ color: entry.color }}>[{entry.time}]</span>
+              <span style={{ color: entry.level === 'ERROR' ? entry.color : '#666' }}> {entry.level}: </span>
+              {entry.message}
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   )
-} 
+}

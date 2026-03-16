@@ -7,7 +7,7 @@ echo
 
 # Build frontend
 echo "📦 Building frontend..."
-cd frontend && npm install && npm run build
+cd frontend && bun install && bun run build
 if [ $? -eq 0 ]; then
     echo "✅ Frontend built successfully"
 else

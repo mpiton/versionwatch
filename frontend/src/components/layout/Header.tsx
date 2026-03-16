@@ -1,5 +1,6 @@
 import React from 'react'
-import { commonStyles } from '../../styles/common'
+import { Button } from "@/components/ui/button"
+import { RefreshCw, Pause, Play } from "lucide-react"
 
 interface HeaderProps {
   lastRefresh: string
@@ -15,71 +16,42 @@ export const Header: React.FC<HeaderProps> = ({
   onManualRefresh
 }) => {
   return (
-    <header style={commonStyles.header}>
-      <div style={commonStyles.headerContent}>
-        <div style={commonStyles.logoContainer}>
-          <img 
-            src="/logo.png" 
-            alt="VersionWatch Logo" 
-            style={commonStyles.logo}
+    <header className="bg-background border-b-[3px] border-primary px-8 py-4 shadow-sm">
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          <img
+            src="/logo.png"
+            alt="VersionWatch Logo"
+            className="w-[60px] h-[60px] rounded-xl shadow-md"
           />
           <div>
-            <h1 style={commonStyles.title}>VersionWatch</h1>
-            <p style={commonStyles.subtitle}>
+            <h1 className="text-4xl font-bold bg-gradient-to-br from-[#667eea] to-[#764ba2] bg-clip-text text-transparent">VersionWatch</h1>
+            <p className="text-sm text-muted-foreground mt-1">
               Software Version Monitoring Dashboard
             </p>
           </div>
         </div>
-        
-        <div style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '1rem',
-          fontSize: '0.9rem',
-          color: '#666'
-        }}>
-          <div style={{ textAlign: 'right' }}>
+
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <div className="text-right">
             <div>Last refresh: {lastRefresh}</div>
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.5rem', 
-              marginTop: '0.5rem' 
-            }}>
-              <button
+            <div className="flex items-center gap-2 mt-2">
+              <Button
+                variant={isAutoRefresh ? "default" : "outline"}
+                size="sm"
                 onClick={onRefreshToggle}
-                style={{
-                  padding: '0.5rem 1rem',
-                  border: 'none',
-                  borderRadius: '0.5rem',
-                  cursor: 'pointer',
-                  backgroundColor: isAutoRefresh ? '#4CAF50' : '#f0f0f0',
-                  color: isAutoRefresh ? 'white' : '#333',
-                  fontSize: '0.8rem',
-                  transition: 'all 0.2s ease'
-                }}
               >
-                {isAutoRefresh ? '🔄 Auto-refresh ON' : '⏸️ Auto-refresh OFF'}
-              </button>
-              <button
-                onClick={onManualRefresh}
-                style={{
-                  padding: '0.5rem 1rem',
-                  border: 'none',
-                  borderRadius: '0.5rem',
-                  cursor: 'pointer',
-                  backgroundColor: '#667eea',
-                  color: 'white',
-                  fontSize: '0.8rem',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                🔄 Refresh Now
-              </button>
+                {isAutoRefresh ? <Pause className="h-4 w-4 mr-1" /> : <Play className="h-4 w-4 mr-1" />}
+                {isAutoRefresh ? 'Auto-refresh ON' : 'Auto-refresh OFF'}
+              </Button>
+              <Button size="sm" onClick={onManualRefresh}>
+                <RefreshCw className="h-4 w-4 mr-1" />
+                Refresh Now
+              </Button>
             </div>
           </div>
         </div>
       </div>
     </header>
   )
-} 
+}

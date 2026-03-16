@@ -1,3 +1,3 @@
-export { Tooltip } from './Tooltip'
+export { TooltipLegacy } from './TooltipLegacy'
 export { MetricCard } from './MetricCard'
-export { Loading } from './Loading' 
+export { Loading } from './Loading'

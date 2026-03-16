@@ -8,7 +8,7 @@ echo "🏗️  Building VersionWatch for production..."
 # Build the React frontend
 echo "⚛️  Building React frontend..."
 cd frontend
-npm run build
+bun run build
 
 if [ $? -ne 0 ]; then
     echo "❌ Frontend build failed"

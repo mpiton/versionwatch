@@ -1,93 +1,89 @@
 import React from 'react'
 import { DashboardMetrics } from '../types'
-import { commonStyles } from '../styles/common'
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { ClipboardList } from "lucide-react"
 
 interface CollectorsProps {
   metrics: DashboardMetrics
 }
 
+import { STATUS_COLORS, getCategoryColor } from "@/lib/constants"
+
 export const Collectors: React.FC<CollectorsProps> = ({ metrics }) => {
   const hasCollectors = metrics?.collector_stats?.length > 0
 
   return (
-    <div style={commonStyles.card}>
-      <h2 style={commonStyles.cardTitle}>
-        📋 Collectors Details
-      </h2>
-      {!hasCollectors ? (
-        <div style={commonStyles.emptyState}>
-          🔄 Waiting for collection data...
-          <br />
-          <small style={{ marginTop: '0.5rem', display: 'block' }}>
-            The first collection may take a few minutes after server startup
-          </small>
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gap: '1rem' }}>
-          {metrics.collector_stats.map((collector) => (
-            <div key={collector.name} style={{
-              padding: '1rem',
-              backgroundColor: '#f8f9fa',
-              borderRadius: '0.5rem',
-              border: `2px solid ${collector.status === 'Active' ? commonStyles.statusColors.active : commonStyles.statusColors.failed}`,
-              display: 'grid',
-              gridTemplateColumns: 'auto 1fr auto auto',
-              alignItems: 'center',
-              gap: '1rem'
-            }}>
-              {/* Status indicator */}
-              <div style={{
-                width: '12px',
-                height: '12px',
-                borderRadius: '50%',
-                backgroundColor: collector.status === 'Active' ? commonStyles.statusColors.active : commonStyles.statusColors.failed
-              }} />
-              
-              {/* Collector info */}
-              <div>
-                <strong style={{ fontSize: '1.1rem' }}>{collector.name}</strong>
-                <div style={{ fontSize: '0.9rem', color: '#666', marginTop: '0.25rem' }}>
-                  {collector.version_count} versions • 
-                  <span style={{ 
-                    color: collector.performance_category === 'Low Volume' ? commonStyles.statusColors.active : 
-                          collector.performance_category === 'Medium Volume' ? commonStyles.statusColors.warning : 
-                          collector.performance_category === 'High Volume' ? commonStyles.statusColors.info :
-                          collector.performance_category === 'Very High Volume' ? '#9C27B0' : '#9E9E9E',
-                    marginLeft: '0.5rem'
-                  }}>
-                    {collector.performance_category}
-                  </span>
-                </div>
-                {collector.error_message && (
-                  <div style={{ fontSize: '0.8rem', color: commonStyles.statusColors.failed, marginTop: '0.25rem' }}>
-                    ⚠️ {collector.error_message}
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <ClipboardList className="h-5 w-5" />
+          Collectors Details
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {!hasCollectors ? (
+          <div className="text-center py-8 text-muted-foreground text-sm">
+            Waiting for collection data...
+            <br />
+            <small className="mt-2 block">
+              The first collection may take a few minutes after server startup
+            </small>
+          </div>
+        ) : (
+          <div className="grid gap-4">
+            {metrics.collector_stats.map((collector) => (
+              <div
+                key={collector.name}
+                className="p-4 bg-muted/50 rounded-lg grid grid-cols-[auto_1fr_auto_auto] items-center gap-4 border-l-4"
+                style={{ borderLeftColor: collector.status === 'Active' ? STATUS_COLORS.active : STATUS_COLORS.failed }}
+              >
+                {/* Status indicator */}
+                <div
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: collector.status === 'Active' ? STATUS_COLORS.active : STATUS_COLORS.failed }}
+                />
+
+                {/* Collector info */}
+                <div>
+                  <div className="text-lg font-semibold">{collector.name}</div>
+                  <div className="text-sm text-muted-foreground mt-1">
+                    {collector.version_count} versions &bull;{' '}
+                    <Badge variant="outline" style={{ borderColor: getCategoryColor(collector.performance_category), color: getCategoryColor(collector.performance_category) }}>
+                      {collector.performance_category}
+                    </Badge>
                   </div>
-                )}
+                  {collector.error_message && (
+                    <div className="text-xs text-destructive mt-1">
+                      {collector.error_message}
+                    </div>
+                  )}
+                </div>
+
+                {/* Response time */}
+                <div className="text-right">
+                  <div className="text-sm font-bold">
+                    {Math.round(collector.response_time)}ms
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Response time
+                  </div>
+                </div>
+
+                {/* Last updated */}
+                <div className="text-right">
+                  <div className="text-xs text-muted-foreground">
+                    Last updated
+                  </div>
+                  <div className="text-sm">
+                    {new Date(collector.last_collection).toLocaleString()}
+                  </div>
+                </div>
               </div>
-              
-              {/* Response time */}
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>
-                  {Math.round(collector.response_time)}ms
-                </div>
-                <div style={{ fontSize: '0.8rem', color: '#666' }}>
-                  Response time
-                </div>
-              </div>
-              
-              {/* Last updated */}
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '0.8rem', color: '#666' }}>
-                  Last updated
-                </div>
-                <div style={{ fontSize: '0.9rem' }}>
-                  {new Date(collector.last_collection).toLocaleString()}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
-} 
+}
