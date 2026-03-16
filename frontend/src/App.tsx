@@ -26,8 +26,8 @@ function App() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#667eea] to-[#764ba2] flex items-center justify-center font-sans">
-        <div className="text-center text-white p-8 bg-white/10 rounded-2xl">
+      <div className="min-h-screen bg-background flex items-center justify-center font-sans">
+        <div className="text-center text-foreground p-8 bg-card rounded-2xl">
           <div className="text-5xl mb-4">❌</div>
           <div className="text-xl mb-4">Error loading dashboard</div>
           <div className="text-sm text-red-300">{error}</div>
@@ -66,7 +66,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#667eea] to-[#764ba2] font-sans text-white">
+    <div className="min-h-screen bg-background font-sans text-foreground">
       <Header
         lastRefresh={lastRefresh}
         isAutoRefresh={isAutoRefresh}

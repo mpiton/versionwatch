@@ -25,7 +25,7 @@ export const Header: React.FC<HeaderProps> = ({
             className="w-[60px] h-[60px] rounded-xl shadow-md"
           />
           <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-br from-[#667eea] to-[#764ba2] bg-clip-text text-transparent">VersionWatch</h1>
+            <h1 className="text-4xl font-bold text-primary">VersionWatch</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Software Version Monitoring Dashboard
             </p>

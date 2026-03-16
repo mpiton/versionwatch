@@ -26,11 +26,11 @@ export const Navigation: React.FC<NavigationProps> = ({
   onViewChange
 }) => {
   return (
-    <nav className="bg-white/10 px-8 py-2">
+    <nav className="bg-secondary px-8 py-2">
       <Tabs value={currentView} onValueChange={(val) => onViewChange(val as ViewType)}>
-        <TabsList className="bg-white/10">
+        <TabsList className="bg-secondary">
           {tabs.map((tab) => (
-            <TabsTrigger key={tab.view} value={tab.view} className="gap-2 data-[state=active]:bg-white/20 text-white data-[state=active]:text-white">
+            <TabsTrigger key={tab.view} value={tab.view} className="gap-2 data-[state=active]:bg-accent text-muted-foreground data-[state=active]:text-foreground">
               {tab.icon} {tab.label}
             </TabsTrigger>
           ))}

@@ -15,10 +15,10 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   value,
   icon,
   tooltip,
-  color = '#667eea'
+  color = 'var(--primary)'
 }) => {
   const cardContent = (
-    <Card className="bg-white/95 text-center shadow-md min-h-[140px] flex flex-col justify-center border-[3px] transition-transform hover:scale-[1.02]" style={{ borderColor: color }}>
+    <Card className="bg-card text-center shadow-md min-h-[140px] flex flex-col justify-center border-[3px] transition-transform hover:scale-[1.02]" style={{ borderColor: color }}>
       <CardContent className="p-6 flex flex-col justify-center">
         <div className="text-[2.5rem] mb-2 drop-shadow">
           {icon}
